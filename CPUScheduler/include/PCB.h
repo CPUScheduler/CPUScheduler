@@ -2,6 +2,7 @@
 #define PCB_H
 
 #include <vector>
+// basic PCB implementation, may need to be changed later
 class PCB
 {
     public:
