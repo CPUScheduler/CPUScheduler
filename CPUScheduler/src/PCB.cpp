@@ -1,8 +1,11 @@
 #include "PCB.h"
 
-PCB::PCB()
+PCB::PCB(int procID, int arrival, std::vector<int> CPU_IOTimes)
 {
-    //ctor
+    PID = procID;
+    subTime = arrival;
+    CPU_IO = CPU_IOTimes;
+    execStart = complete = queueTime = execTime = IOTime = -1;
 }
 
 PCB::~PCB()
