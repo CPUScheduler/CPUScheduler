@@ -59,7 +59,16 @@ std::vector<PCB> CSVproc::input(std::string filename)
     return procTable;
 }
 
-std::string CSVproc::output(std::vector<PCB> procTable)
+void CSVproc::output(std::string filename, std::vector<PCB> procTable)
 {
-    return "PLACE HOLDER";
+    std::ofstream file;
+    file.open(filename.c_str());
+    file << "PID,Submitted,Started,Completed,Queues,Executing,IO\n";
+    for(int i = 0; i < procTable.size(); i++)
+    {
+        file << procTable[i].PID << "," << procTable[i].subTime << "," << procTable[i].execStart << ","
+             << procTable[i].complete << "," << procTable[i].queueTime << "," << procTable[i].execTime << ","
+             << procTable[i].IOTime << "\n";
+    }
+    file.close();
 }

@@ -14,7 +14,7 @@ class CSVproc
         CSVproc();
         virtual ~CSVproc();
         std::vector<PCB> input(std::string);
-        std::string output(std::vector<PCB>);
+        void output(std::string, std::vector<PCB>);
     protected:
     private:
 };

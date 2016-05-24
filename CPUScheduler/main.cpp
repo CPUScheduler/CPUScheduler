@@ -11,7 +11,6 @@ int main()
     std::vector<PCB> procTable;
     CSVproc test;
     procTable = test.input("../processes/0.txt");
-    //cout << "Hello world!" << endl;
-    cout<< procTable[1999].subTime<<endl;
+    test.output("../outputs/0.csv", procTable);
     return 0;
 }
