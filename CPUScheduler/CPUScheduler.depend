@@ -1,0 +1,23 @@
+# depslib dependency file v1.0
+1464126893 source:c:\users\nolan chinn\desktop\homework\2015-2016\cptr352\final project\cpuscheduler\cpuscheduler\src\pcb.cpp
+	"PCB.h"
+
+1464127004 c:\users\nolan chinn\desktop\homework\2015-2016\cptr352\final project\cpuscheduler\cpuscheduler\include\pcb.h
+	<vector>
+
+1464127024 source:c:\users\nolan chinn\desktop\homework\2015-2016\cptr352\final project\cpuscheduler\cpuscheduler\main.cpp
+	<iostream>
+	<vector>
+	"PCB.h"
+	"CSVproc.h"
+
+1464126958 c:\users\nolan chinn\desktop\homework\2015-2016\cptr352\final project\cpuscheduler\cpuscheduler\include\csvproc.h
+	"PCB.h"
+	<vector>
+	<string>
+	<fstream>
+	<stdlib.h>
+
+1464126786 source:c:\users\nolan chinn\desktop\homework\2015-2016\cptr352\final project\cpuscheduler\cpuscheduler\src\csvproc.cpp
+	"CSVproc.h"
+
