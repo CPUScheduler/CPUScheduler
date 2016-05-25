@@ -34,9 +34,11 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="include/AbstractQueue.h" />
 		<Unit filename="include/CSVproc.h" />
 		<Unit filename="include/PCB.h" />
 		<Unit filename="main.cpp" />
+		<Unit filename="src/AbstractQueue.cpp" />
 		<Unit filename="src/CSVproc.cpp" />
 		<Unit filename="src/PCB.cpp" />
 		<Extensions>
