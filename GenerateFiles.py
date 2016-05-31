@@ -59,7 +59,7 @@ if __name__ == "__main__":
                         else:
                             l.append(np.random.randint(1,maxTimeIO))
 
-                    f.write(",".join(str(x) for x in l) + "\r\n")
+                    f.write(",".join(str(x) for x in l) + "\n")
 
     #
     # Generate example output file for initial plotting
