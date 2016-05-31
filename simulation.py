@@ -60,11 +60,8 @@ class QueueSPN(Queue):
 class QueueHRRN(Queue):
     def dequeue(self):
         # Find one with the highest: (wait time + service time) / service time
-        serviceTimes = [sum(p.times) for p in self.items] # I think sum(p.times) includes I/O time, this needs to be just the CPU time
-        # might want to try something to only get every other integer in times if we want just the CPU times
-        waitTimes = [p.queues for p in self.items]
+        serviceTimes = [sum(p.times) for p in self.items]
         ratios = [(w+s)/s for w,s in zip(waitTimes,serviceTimes)]
-        #ratios = (waitTimes + serviceTimes) / serviceTimes
         index = np.argmax(ratios)
         item = self.items[index]
 
