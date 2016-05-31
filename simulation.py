@@ -56,6 +56,24 @@ class QueueSPN(Queue):
 
         return item
 
+# HRRN is FCFS but selects which is next based on the biggest ratio R
+class QueueHRRN(Queue):
+    def dequeue(self):
+        # Find one with the highest: (wait time + service time) / service time
+        serviceTimes = [sum(p.times) for p in self.items] # I think sum(p.times) includes I/O time, this needs to be just the CPU time
+        # might want to try something to only get every other integer in times if we want just the CPU times
+        waitTimes = [p.queues for p in self.items]
+        ratios = [(w+s)/s for w,s in zip(waitTimes,serviceTimes)]
+        #ratios = (waitTimes + serviceTimes) / serviceTimes
+        index = np.argmax(ratios)
+        item = self.items[index]
+
+        #Delete it from the queue
+        del self.items[index]
+
+        return item
+
+
 # Allow for working with multiple queues
 class MultilevelQueue():
     def __init__(self, queues):
@@ -468,6 +486,12 @@ if __name__ == "__main__":
                 queues = [QueueFCFS() for i in range(0,fcfsCount)]
                 runTest("fcfs"+str(fcfsCount)+"_cpu"+str(cores), queues, cores)
 
+        # Test different numbers of HRRN queues, also varying number of cores
+        for hrrnCount in [1,3,5,7]:
+            for cores in range(1,18,2):
+                queues = [QueueHRRN() for i in range(0,hrrnCount)]
+                runTest("HRRN"+str(hrrnCount)+"_cpu"+str(cores), queues, cores)
+
         # Test RR, RR, FCFS, also varying number of cores
         for tq1, tq2 in [(2,10), (10,2), (5,5), (10,10), (50,50), (50,10), (10,50)]:
             for cores in range(1,18,2):
@@ -480,6 +504,8 @@ if __name__ == "__main__":
                 queues = [QueueRR(tq1), QueueRR(tq2), QueueSPN()]
                 runTest("RR"+str(tq1)+"RR"+str(tq2)+"SPN_cpu"+str(cores), queues, cores)
 
+
     # Print when each finishes
     for r in results:
         print("Results:", r.get())
+ 
