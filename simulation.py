@@ -61,6 +61,7 @@ class QueueHRRN(Queue):
     def dequeue(self):
         # Find one with the highest: (wait time + service time) / service time
         serviceTimes = [sum(p.times) for p in self.items]
+        waitTimes = [p.queues for p in self.items]
         ratios = [(w+s)/s for w,s in zip(waitTimes,serviceTimes)]
         index = np.argmax(ratios)
         item = self.items[index]
