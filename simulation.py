@@ -352,7 +352,8 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
                 # If the I/O wasn't the last operation, then we have more CPU
                 # time needed for this process
                 if p.times:
-                    queue.enqueue(p, priority=0)
+                    newPriority = min(p.priority+1,len(queue.queues)-1)
+                    queue.enqueue(p, priority=newPriority)
                 else:
                     cpu.done(clock, p)
                     if debug:
@@ -392,7 +393,7 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
                 # and let the processor move onto another process next clock
                 # cycle
                 elif cpu.p.isPreempted():
-                    newPriority = min(cpu.p.priority,len(queue.queues)-1)
+                    newPriority = min(cpu.p.priority+1,len(queue.queues)-1)
                     queue.enqueue(cpu.p, priority=newPriority)
                     cpu.startContextSwitch()
 
@@ -478,18 +479,6 @@ if __name__ == "__main__":
             else:
                 print("Skipping:", outfile)
 
-        # Test different numbers of FCFC queues, also varying number of cores
-        for fcfsCount in [1,3,5,7]:
-            for cores in range(1,18,2):
-                queues = [QueueFCFS() for i in range(0,fcfsCount)]
-                runTest("fcfs"+str(fcfsCount)+"_cpu"+str(cores), queues, cores)
-
-        # Test different numbers of HRRN queues, also varying number of cores
-        for hrrnCount in [1,3,5,7]:
-            for cores in range(1,18,2):
-                queues = [QueueHRRN() for i in range(0,hrrnCount)]
-                runTest("HRRN"+str(hrrnCount)+"_cpu"+str(cores), queues, cores)
-
         # Test RR, RR, FCFS, also varying number of cores
         for tq1, tq2 in [(2,10), (10,2), (5,5), (10,10), (50,50), (50,10), (10,50)]:
             for cores in range(1,18,2):
@@ -502,8 +491,30 @@ if __name__ == "__main__":
                 queues = [QueueRR(tq1), QueueRR(tq2), QueueSPN()]
                 runTest("RR"+str(tq1)+"RR"+str(tq2)+"SPN_cpu"+str(cores), queues, cores)
 
+        # Test RR, RR, HRRN, also varying number of cores
+        for tq1, tq2 in [(2,10), (10,2), (5,5), (10,10), (50,50), (50,10), (10,50)]:
+            for cores in range(1,18,2):
+                queues = [QueueRR(tq1), QueueRR(tq2), QueueHRRN()]
+                runTest("RR"+str(tq1)+"RR"+str(tq2)+"HRRN_cpu"+str(cores), queues, cores)
+
+        # Test RR, RR, HRRN, FCFS also varying number of cores
+        for tq1, tq2 in [(2,10), (10,2), (5,5), (10,10), (50,50), (50,10), (10,50)]:
+            for cores in range(1,18,2):
+                queues = [QueueRR(tq1), QueueRR(tq2), QueueHRRN(), QueueFCFS()]
+                runTest("RR"+str(tq1)+"RR"+str(tq2)+"HRRN_FCFS_cpu"+str(cores), queues, cores)
+
+        # Test RR, RR, HRRN, FCFS also varying number of cores
+        """
+        tq1 = 2
+        tq2 = 10
+        cores = 2
+        for maxProcesses in range(1,500,100):
+            queues = [QueueRR(tq1), QueueRR(tq2), QueueHRRN(), QueueFCFS()]
+            runTest("LoadControl"+str(maxProcesses), queues, cores) # pass in maxProcesses
+        """
+
 
     # Print when each finishes
     for r in results:
         print("Results:", r.get())
- 
+
