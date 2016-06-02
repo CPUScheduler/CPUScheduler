@@ -254,17 +254,17 @@ class PCB:
         return isPreempt
 
     # Increment the times when doing I/O, executing, in queues
-    def incIO(self):
-        self.io += 1
-        self.ioTotal += 1
+    def incIO(self, amt):
+        self.io += amt
+        self.ioTotal += amt
 
-    def incExec(self):
-        self.executing += 1
-        self.sinceLastPreempt += 1
-        self.executingTotal += 1
+    def incExec(self, amt):
+        self.executing += amt
+        self.sinceLastPreempt += amt
+        self.executingTotal += amt
 
-    def incQueues(self):
-        self.queues += 1
+    def incQueues(self, amt):
+        self.queues += amt
 
 # We will re-run the same files multiple times with different input so we can
 # compare different algorithms
@@ -303,7 +303,8 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
     clock = 0
     queue = MultilevelQueue(queues)
     allProcesses = loadProcessesFromCSV(infile)
-
+    leastInc = 0 
+    
     # Process table, i.e. list of all processes running, indexed by the PID
     processTable = {}
 
@@ -316,8 +317,10 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
 
     # We have one I/O queue that is FCFS
     io = []
-
     while True:
+        # Reset the increment times container each time through the loop, so we get new values
+        incTimes = []
+
         # Add processes as they arrive to the process table
         arrived = [p for p in allProcesses if p.arrivalTime == clock]
 
@@ -334,10 +337,14 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
             if debug:
                 print(clock, "Process", p.pid, "arrived")
 
+        # Get the time left until the next arrival and add it to the increment times if there are any processes left
+        if allProcesses:
+            incTimes.append(allProcesses[0].arrivalTime - clock)
+
         # Manage what is waiting in the I/O queue, which is FCFS
         if io:
             p = io[-1]
-            p.incIO()
+            p.incIO(leastInc)
 
             if debug:
                 oldTime = p.times[-1]
@@ -358,12 +365,17 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
                     if debug:
                         print(clock, "Process", p.pid, "completed after",
                                 p.executingTotal, "and", p.ioTotal, "I/O")
+            else:
+                incTimes.append(p.times[-1] - p.io)
 
         # Run each CPU
         for cpuIndex, cpu in enumerate(cpus):
             # If a process is running, increment it's executing time
             if cpu.running:
-                cpu.p.incExec()
+                 # add the time left for execution to the list of possible increment times
+                #incTimes.append(cpu.p.times[-1]-cpu.p.executing)
+
+                cpu.p.incExec(leastInc)
 
                 if debug:
                     print(clock, "Executing", cpu.p.pid, "Time left",
@@ -377,6 +389,8 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
                             print(clock, "Process", cpu.p.pid,
                                     "performing I/O for", cpu.p.times[-1])
                         io.insert(0, cpu.p)
+
+                        incTimes.append(cpu.p.times[-1])
                     # Otherwise, we're done and start a context switch
                     else:
                         cpu.done(clock, cpu.p)
@@ -387,6 +401,8 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
                     # In either case, this core is no longer running any
                     # process and now it's in a context switch
                     cpu.startContextSwitch()
+                    incTimes.append(contextSwitchTime - cpu.contextSwitchCount)
+
 
                 # Otherwise, if it's preempted, then move it to the next queue
                 # and let the processor move onto another process next clock
@@ -394,13 +410,20 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
                 elif cpu.p.isPreempted():
                     newPriority = min(cpu.p.priority,len(queue.queues)-1)
                     queue.enqueue(cpu.p, priority=newPriority)
+
+                    # add the time for a context switch to the list of possible increment times
+                    #incTimes.append(contextSwitchTime)
+                    
                     cpu.startContextSwitch()
+                    incTimes.append(contextSwitchTime - cpu.contextSwitchCount)
 
                     if debug:
                         print(clock, "Preempting", cpu.p.pid, "after",
                                 cpu.p.sinceLastPreempt, "moving to priority",
                                 newPriority)
 
+                else:
+                    incTimes.append(cpu.p.times[-1]-cpu.p.executing)
             # If no process is running, check if we're done with any context
             # switch, and if not but there's another process in the global
             # queue, start running it
@@ -414,10 +437,16 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
         # We're dealing with a multilevel queue, so it's 2D.
         for q in queue.queues:
             for p in q.items:
-                p.incQueues()
+                p.incQueues(leastInc)
 
         # We're done with this clock cycle
-        clock += 1
+        print(incTimes)
+        print(clock)
+        clock += leastInc
+        incTimes[:] = (value for value in incTimes if value > 0)
+        if incTimes:
+            leastInc = min(incTimes)
+        
 
         # TODO increment by time to get us to the next event
 
