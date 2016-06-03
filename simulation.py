@@ -321,6 +321,11 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
         # Reset the increment times container each time through the loop, so we get new values
         incTimes = []
 
+        # Containers to hold items that need incrementation
+        incQueues = []
+        incExecs = []
+        incIOs = []
+
         # Add processes as they arrive to the process table
         arrived = [p for p in allProcesses if p.arrivalTime == clock]
 
@@ -344,7 +349,8 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
         # Manage what is waiting in the I/O queue, which is FCFS
         if io:
             p = io[-1]
-            p.incIO(leastInc)
+            #p.incIO(leastInc)
+            incIOs.append(p)
 
             #Time until IO is complete 
             incTimes.append(p.times[-1] - p.io)
@@ -374,7 +380,8 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
             # If a process is running, increment it's executing time
             if cpu.running:
 
-                cpu.p.incExec(leastInc)
+                #cpu.p.incExec(leastInc)
+                incExecs.append(cpu.p)
 
                 #Time until execution is complete
                 incTimes.append(cpu.p.times[-1]-cpu.p.executing)
@@ -417,9 +424,6 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
                     newPriority = min(cpu.p.priority,len(queue.queues)-1)
                     queue.enqueue(cpu.p, priority=newPriority)
 
-                    # add the time for a context switch to the list of possible increment times
-                    #incTimes.append(contextSwitchTime)
-                    
                     cpu.startContextSwitch()
                     incTimes.append(contextSwitchTime - cpu.contextSwitchCount)
 
@@ -443,15 +447,24 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
         # We're dealing with a multilevel queue, so it's 2D.
         for q in queue.queues:
             for p in q.items:
-                p.incQueues(leastInc)
+                #p.incQueues(leastInc)
+                incQueues.append(p)
 
         # We're done with this clock cycle
         print(incTimes)
         print(clock)
-        clock += leastInc
         incTimes[:] = (value for value in incTimes if value > 0)
         if incTimes:
             leastInc = min(incTimes)
+        clock += leastInc
+
+        for p in incIOs:
+            p.incIO(leastInc)
+        for p in incExecs:
+            p.incExec(leastInc)
+        for p in incQueues:
+            p.incQueues(leastInc)
+        
         
 
         # TODO increment by time to get us to the next event
