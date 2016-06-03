@@ -346,6 +346,9 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
             p = io[-1]
             p.incIO(leastInc)
 
+            #Time until IO is complete 
+            incTimes.append(p.times[-1] - p.io)
+
             if debug:
                 oldTime = p.times[-1]
 
@@ -365,17 +368,16 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
                     if debug:
                         print(clock, "Process", p.pid, "completed after",
                                 p.executingTotal, "and", p.ioTotal, "I/O")
-            else:
-                incTimes.append(p.times[-1] - p.io)
 
         # Run each CPU
         for cpuIndex, cpu in enumerate(cpus):
             # If a process is running, increment it's executing time
             if cpu.running:
-                 # add the time left for execution to the list of possible increment times
-                #incTimes.append(cpu.p.times[-1]-cpu.p.executing)
 
                 cpu.p.incExec(leastInc)
+
+                #Time until execution is complete
+                incTimes.append(cpu.p.times[-1]-cpu.p.executing)
 
                 if debug:
                     print(clock, "Executing", cpu.p.pid, "Time left",
@@ -390,7 +392,9 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
                                     "performing I/O for", cpu.p.times[-1])
                         io.insert(0, cpu.p)
 
+                        #Time until IO is complete
                         incTimes.append(cpu.p.times[-1])
+
                     # Otherwise, we're done and start a context switch
                     else:
                         cpu.done(clock, cpu.p)
@@ -401,6 +405,8 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
                     # In either case, this core is no longer running any
                     # process and now it's in a context switch
                     cpu.startContextSwitch()
+
+                    #Time until context switch is complete
                     incTimes.append(contextSwitchTime - cpu.contextSwitchCount)
 
 
