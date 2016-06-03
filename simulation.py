@@ -298,11 +298,14 @@ def writeResultsToCSV(results, fn):
             f.write(repr(p) + "\n")
 
 # Load a file, run the simulation, output the results to a file
-def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
+def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, maxProc, debug):
     # Initialize
     clock = 0
     queue = MultilevelQueue(queues)
     allProcesses = loadProcessesFromCSV(infile)
+
+    # Create a ready queue
+    ready = Queue()
 
     # Process table, i.e. list of all processes running, indexed by the PID
     processTable = {}
@@ -329,7 +332,17 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
             # Add to the process table and add to our queue to start executing
             p = PCB(process.pid, process.times, clock)
             processTable[process.pid] = p
-            queue.enqueue(p, priority=0)
+
+            # If we're not using a ready queue, just bypass it
+            if maxProc == -1:
+                queue.enqueue(p, priority=0)
+            # If we are using a ready queue
+            else:
+                # Stick the incoming process into the ready queue
+                ready.enqueue(p)
+                # If there's space in the multilevel queue, place the next process into it
+                if queue.size() < maxProc:
+                    queue.enqueue(ready.dequeue(), priority=0)
 
             if debug:
                 print(clock, "Process", p.pid, "arrived")
@@ -416,7 +429,8 @@ def runSimulation(infile, outfile, queues, cpuCount, contextSwitchTime, debug):
         for q in queue.queues:
             for p in q.items:
                 p.incQueues()
-
+        for p in ready.items:
+            p.incQueues()
         # We're done with this clock cycle
         clock += 1
 
@@ -439,6 +453,9 @@ if __name__ == "__main__":
 
     # We'll just set this here for all the simulations
     contextSwitchTime = 2
+
+    # The max number of processes in queues (for use wih ready queue)
+    maxProc = 50
 
     if debug:
         maxProcesses = 1
@@ -468,32 +485,32 @@ if __name__ == "__main__":
         # Defined here to just simplify the code, not having to pass in
         # additional variables defined in this scope that are the same for all
         # tests
-        def runTest(testname, queues, cpuCount):
+        def runTest(testname, queues, cpuCount, maxProc):
             outfile = os.path.join(outdir, testfile+"_"+testname+".csv")
 
             # Skip if the output exists already
             if not os.path.isfile(outfile):
                 print("Running:", outfile)
                 results.append(pool.apply_async(runSimulation, [infile,
-                    outfile, queues, cpuCount, contextSwitchTime, debug]))
+                    outfile, queues, cpuCount, contextSwitchTime, maxProc, debug]))
             else:
                 print("Skipping:", outfile)
 
         # Test FCFC varying number of cores
         for cores in range(1,18,2):
             queues = [QueueFCFS()]
-            runTest("fcfs_cpu"+str(cores), queues, cores)
+            runTest("fcfs_cpu"+str(cores), queues, cores, maxProc)
 
         # Test SPN varying number of cores
         for cores in range(1,18,2):
             queues = [QueueSPN()]
-            runTest("spn_cpu"+str(cores), queues, cores)
+            runTest("spn_cpu"+str(cores), queues, cores, maxProc)
 
         # Test HRRN varying number of cores
         for cores in range(1,18,2):
             queues = [QueueHRRN()]
-            runTest("hrrn_cpu"+str(cores), queues, cores)
-
+            runTest("hrrn_cpu"+str(cores), queues, cores, maxProc)
+        """
         # Test RR, RR, FCFS, also varying number of cores
         for tq1, tq2 in [(2,10), (10,2), (5,5), (10,10), (50,50), (50,10), (10,50)]:
             for cores in range(1,18,2):
@@ -523,7 +540,7 @@ if __name__ == "__main__":
             for cores in range(1,18,2):
                 queues = [QueueRR(tq1), QueueRR(tq2), QueueHRRN(), QueueFCFS()]
                 runTest("RR"+str(tq1)+"RR"+str(tq2)+"HRRN_FCFS_cpu"+str(cores), queues, cores)
-
+        """
         # Test RR, RR, HRRN, FCFS also varying number of cores
         """
         tq1 = 2
