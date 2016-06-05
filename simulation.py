@@ -490,6 +490,13 @@ if __name__ == "__main__":
                 queues = [QueueHRRN() for i in range(0,hrrnCount)]
                 runTest("HRRN"+str(hrrnCount)+"_cpu"+str(cores), queues, cores)
 
+        # Test different numbers of RR queues with different time quantums
+        for rrCount in [1,3,5,7]:
+            for tq in [2,5,10,50]:
+                for cores in range(1,18,2):
+                    queues = [QueueRR(tq) for i in range(0, rrCount)]
+                    runTest("RR"+str(rrCount)+"_tq"+str(tq)+"_cpu"+str(cores), queues, cores)
+
         # Test RR, RR, FCFS, also varying number of cores
         for tq1, tq2 in [(2,10), (10,2), (5,5), (10,10), (50,50), (50,10), (10,50)]:
             for cores in range(1,18,2):
@@ -501,6 +508,12 @@ if __name__ == "__main__":
             for cores in range(1,18,2):
                 queues = [QueueRR(tq1), QueueRR(tq2), QueueSPN()]
                 runTest("RR"+str(tq1)+"RR"+str(tq2)+"SPN_cpu"+str(cores), queues, cores)
+
+        # Test RR, RR, HRRN, also varying number of cores
+        for tq1, tq2 in [(2,10), (10,2), (5,5), (10,10), (50,50), (50,10), (10,50)]:
+            for cores in range(1,18,2):
+                queues = [QueueRR(tq1), QueueRR(tq2), QueueHRRN()]
+                runTest("RR"+str(tq1)+"RR"+str(tq2)+"HRRN_cpu"+str(cores), queues, cores)
 
 
     # Print when each finishes
