@@ -58,7 +58,7 @@ def processFiles(directory, files):
 if __name__ == "__main__":
     # Plot all the data
     dirs = sys.argv[1:]
-    outdir = "plots"
+    outdir_prefix = "plots"
     outdir_cores = "cores"
     outdir_queues = "queues"
     outdir_single = "single"
@@ -66,21 +66,22 @@ if __name__ == "__main__":
     if not dirs:
         print("Pass in result directory names as arguments.")
 
-    # Make sure output directory exists
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    if not os.path.exists(os.path.join(outdir, outdir_cores)):
-        os.makedirs(os.path.join(outdir, outdir_cores))
-    if not os.path.exists(os.path.join(outdir, outdir_queues)):
-        os.makedirs(os.path.join(outdir, outdir_queues))
-    if not os.path.exists(os.path.join(outdir, outdir_single)):
-        os.makedirs(os.path.join(outdir, outdir_single))
-
     for d in dirs:
         files = os.listdir(d)
+        outdir = outdir_prefix + "_" + d.strip().replace("/","")
+
+        # Make sure output directory exists
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        if not os.path.exists(os.path.join(outdir, outdir_cores)):
+            os.makedirs(os.path.join(outdir, outdir_cores))
+        if not os.path.exists(os.path.join(outdir, outdir_queues)):
+            os.makedirs(os.path.join(outdir, outdir_queues))
+        if not os.path.exists(os.path.join(outdir, outdir_single)):
+            os.makedirs(os.path.join(outdir, outdir_single))
 
         # FCFS with different numbers of cores
-        re_fcfs = re.compile(".*_fcfs_cpu([0-9]*)\.csv")
+        re_fcfs = re.compile(".*_fcfs1_cpu([0-9]*)\.csv")
         fcfs_files = []
         for f in files:
             m = re_fcfs.match(f)
@@ -93,7 +94,7 @@ if __name__ == "__main__":
         fcfs = processFiles(d, fcfs_files)
 
         # HRRN with different numbers of cores
-        re_hrrn = re.compile(".*_hrrn_cpu([0-9]*)\.csv")
+        re_hrrn = re.compile(".*_HRRN1_cpu([0-9]*)\.csv")
         hrrn_files = []
         for f in files:
             m = re_hrrn.match(f)
@@ -106,7 +107,7 @@ if __name__ == "__main__":
         hrrn = processFiles(d, hrrn_files)
 
         # SPN with different numbers of cores
-        re_spn = re.compile(".*_spn_cpu([0-9]*)\.csv")
+        re_spn = re.compile(".*_SPN1_cpu([0-9]*)\.csv")
         spn_files = []
         for f in files:
             m = re_spn.match(f)
@@ -117,6 +118,21 @@ if __name__ == "__main__":
                 spn_files.append((f, queues, coreCount))
 
         spn = processFiles(d, spn_files)
+
+        # RR with different numbers of cores and time quantums
+        re_rr = re.compile(".*_RR([0-9]*)_tq([0-9]*)_cpu([0-9]*)\.csv")
+        rr_files = []
+        for f in files:
+            m = re_rr.match(f)
+
+            if m and len(m.groups()) == 3:
+                count = int(m.groups()[0])
+                tq = int(m.groups()[1])
+                queues = str(count) + ":" + str(tq)
+                coreCount = int(m.groups()[2])
+                rr_files.append((f, queues, coreCount))
+
+        rr = processFiles(d, rr_files)
 
         # RRRRFCFS
         re_rrrrfcfs = re.compile(".*_RR([0-9]*)RR([0-9]*)FCFS_cpu([0-9]*)\.csv")
@@ -194,7 +210,19 @@ if __name__ == "__main__":
         rrrrhrrnfcfs = processFiles(d, rrrrhrrnfcfs_files)
 
         # Plots
-        def combPlot(x, y, data, hue=None):
+        def combPlot(x, y, data, hue=None, onlyAverage=False):
+            # For Alexander, if she really only wanted to see one value for
+            # each x value, averaging averages.
+            #
+            # Note: the reset_index() is required to make Seaborn be able to
+            # plot the data for some reason.
+            # http://stackoverflow.com/a/10374456
+            if onlyAverage:
+                if hue:
+                    data = pd.DataFrame(data.groupby([x,hue]).mean().reset_index())
+                else:
+                    data = pd.DataFrame(data.groupby(x).mean().reset_index())
+
             #sns.violinplot(x=x, y=y, data=data, hue=hue, inner=None)
             #sns.swarmplot(x=x, y=y, data=data, hue=hue, color="w", alpha=.5)
             sns.swarmplot(x=x, y=y, hue=hue, data=data)
@@ -227,6 +255,7 @@ if __name__ == "__main__":
 
             plt.subplots_adjust(wspace=0.3, hspace=0.4)
             plt.savefig(os.path.join(outdir, outdir_single, "Single FCFS Queue.png"))
+            plt.close(fig)
 
         if len(spn.index):
             #
@@ -253,6 +282,7 @@ if __name__ == "__main__":
 
             plt.subplots_adjust(wspace=0.3, hspace=0.4)
             plt.savefig(os.path.join(outdir, outdir_single, "Single SPN Queue.png"))
+            plt.close(fig)
 
         if len(hrrn.index):
             #
@@ -279,6 +309,7 @@ if __name__ == "__main__":
 
             plt.subplots_adjust(wspace=0.3, hspace=0.4)
             plt.savefig(os.path.join(outdir, outdir_single, "Single HRRN Queue.png"))
+            plt.close(fig)
 
         # Compare SPN, HRRN, and FCFS for 3 cores on one plot
         if len(fcfs.index) and len(hrrn.index) and len(spn.index):
@@ -308,11 +339,12 @@ if __name__ == "__main__":
             plt.subplots_adjust(wspace=0.3, hspace=0.4)
             plt.savefig(os.path.join(outdir, outdir_queues,
                 "FCFS vs. HRRN vs. SPN Queues for "+str(core)+" cores.png"))
+            plt.close(fig)
 
-        # Compare SPN, HRRN, and FCFS for 3 cores on one plot
-        if len(fcfs.index) and len(hrrn.index) and len(spn.index) and \
-        len(rrrrfcfs.index) and len(rrrrspn.index) and len(rrrrhrrn.index) and \
-        len(rrrrspnfcfs.index) and len(rrrrhrrnfcfs.index):
+        # Compare everything for 3 cores on one plot
+        if len(fcfs.index) or len(hrrn.index) or len(spn.index) or \
+        len(rrrrfcfs.index) or len(rrrrspn.index) or len(rrrrhrrn.index) or \
+        len(rrrrspnfcfs.index) or len(rrrrhrrnfcfs.index):
             core = 3
             comparison = pd.concat([fcfs, hrrn, spn, rrrrfcfs, rrrrspn,
                 rrrrhrrn, rrrrspnfcfs, rrrrhrrnfcfs])
@@ -341,6 +373,63 @@ if __name__ == "__main__":
             plt.subplots_adjust(wspace=0.3, hspace=0.4)
             plt.savefig(os.path.join(outdir, outdir_queues,
                 "Queue Algorithm Variations for "+str(core)+" cores.png"))
+            plt.close(fig)
+
+        if len(rr.index):
+            #
+            # RR, RR, HRRN, FCFS Queues
+            #
+            #for core in rr['Cores'].unique():
+            for core in [3]:
+                comparison = pd.concat([fcfs, hrrn, spn, rr])
+                oneCore = comparison.loc[lambda df: df.Cores == core]
+
+                fig = plt.figure(figsize=(figsize[0]*1.8, figsize[1]))
+                fig.suptitle("RR Queues for "+str(core)+" cores - "+d)
+
+                ax1 = fig.add_subplot(2,2,1)
+                combPlot(x="Queues", y="AvgTurnaround", data=oneCore)
+                ax1.set_title("Avg Turnaround")
+
+                ax2 = fig.add_subplot(2,2,2)
+                combPlot(x="Queues", y="AvgWait", data=oneCore)
+                ax2.set_title("Avg Wait")
+
+                ax3 = fig.add_subplot(2,2,3)
+                combPlot(x="Queues", y="AvgResponse", data=oneCore)
+                ax3.set_title("Avg Response")
+
+                ax4 = fig.add_subplot(2,2,4)
+                combPlot(x="Queues", y="Throughput", data=oneCore)
+                ax4.set_title("Throughput")
+
+                plt.subplots_adjust(wspace=0.15, hspace=0.4)
+                plt.savefig(os.path.join(outdir, outdir_queues,
+                    "RR Queues for "+str(core)+" cores.png"))
+                plt.close(fig)
+
+            fig = plt.figure(figsize=figsize)
+            fig.suptitle("RR Queues - "+d)
+
+            ax1 = fig.add_subplot(2,2,1)
+            combPlot(hue="Queues", x="Cores", y="AvgTurnaround", data=rr)
+            ax1.set_title("Avg Turnaround")
+
+            ax2 = fig.add_subplot(2,2,2)
+            combPlot(hue="Queues", x="Cores", y="AvgWait", data=rr)
+            ax2.set_title("Avg Wait")
+
+            ax3 = fig.add_subplot(2,2,3)
+            combPlot(hue="Queues", x="Cores", y="AvgResponse", data=rr)
+            ax3.set_title("Avg Response")
+
+            ax4 = fig.add_subplot(2,2,4)
+            combPlot(hue="Queues", x="Cores", y="Throughput", data=rr)
+            ax4.set_title("Throughput")
+
+            plt.subplots_adjust(wspace=0.3, hspace=0.4)
+            plt.savefig(os.path.join(outdir, outdir_cores, "RR Queues.png"))
+            plt.close(fig)
 
         if len(rrrrfcfs.index):
             #
@@ -348,9 +437,10 @@ if __name__ == "__main__":
             #
             #for core in rrrrfcfs['Cores'].unique():
             for core in [3]:
-                oneCore = rrrrfcfs.loc[lambda df: df.Cores == core]
+                comparison = pd.concat([fcfs, hrrn, spn, rrrrfcfs])
+                oneCore = comparison.loc[lambda df: df.Cores == core]
 
-                fig = plt.figure(figsize=figsize)
+                fig = plt.figure(figsize=(figsize[0]*1.5, figsize[1]))
                 fig.suptitle("RR RR FCFS Queues for "+str(core)+" cores - "+d)
 
                 ax1 = fig.add_subplot(2,2,1)
@@ -369,9 +459,10 @@ if __name__ == "__main__":
                 combPlot(x="Queues", y="Throughput", data=oneCore)
                 ax4.set_title("Throughput")
 
-                plt.subplots_adjust(wspace=0.3, hspace=0.4)
+                plt.subplots_adjust(wspace=0.15, hspace=0.4)
                 plt.savefig(os.path.join(outdir, outdir_queues,
                     "RR RR FCFS Queues for "+str(core)+" cores.png"))
+                plt.close(fig)
 
             fig = plt.figure(figsize=figsize)
             fig.suptitle("RR RR FCFS Queues - "+d)
@@ -394,6 +485,7 @@ if __name__ == "__main__":
 
             plt.subplots_adjust(wspace=0.3, hspace=0.4)
             plt.savefig(os.path.join(outdir, outdir_cores, "RR RR FCFS Queues.png"))
+            plt.close(fig)
 
         if len(rrrrspn.index):
             #
@@ -401,9 +493,10 @@ if __name__ == "__main__":
             #
             #for core in rrrrspn['Cores'].unique():
             for core in [3]:
-                oneCore = rrrrspn.loc[lambda df: df.Cores == core]
+                comparison = pd.concat([fcfs, hrrn, spn, rrrrspn])
+                oneCore = comparison.loc[lambda df: df.Cores == core]
 
-                fig = plt.figure(figsize=figsize)
+                fig = plt.figure(figsize=(figsize[0]*1.5, figsize[1]))
                 fig.suptitle("RR RR SPN Queues for "+str(core)+" cores - "+d)
 
                 ax1 = fig.add_subplot(2,2,1)
@@ -422,9 +515,10 @@ if __name__ == "__main__":
                 combPlot(x="Queues", y="Throughput", data=oneCore)
                 ax4.set_title("Throughput")
 
-                plt.subplots_adjust(wspace=0.3, hspace=0.4)
+                plt.subplots_adjust(wspace=0.15, hspace=0.4)
                 plt.savefig(os.path.join(outdir, outdir_queues,
                     "RR RR SPN Queues for "+str(core)+" cores.png"))
+                plt.close(fig)
 
             fig = plt.figure(figsize=figsize)
             fig.suptitle("RR RR SPN Queues - "+d)
@@ -447,6 +541,7 @@ if __name__ == "__main__":
 
             plt.subplots_adjust(wspace=0.3, hspace=0.4)
             plt.savefig(os.path.join(outdir, outdir_cores, "RR RR SPN Queues.png"))
+            plt.close(fig)
 
         if len(rrrrhrrn.index):
             #
@@ -454,9 +549,10 @@ if __name__ == "__main__":
             #
             #for core in rrrrhrrn['Cores'].unique():
             for core in [3]:
-                oneCore = rrrrhrrn.loc[lambda df: df.Cores == core]
+                comparison = pd.concat([fcfs, hrrn, spn, rrrrhrrn])
+                oneCore = comparison.loc[lambda df: df.Cores == core]
 
-                fig = plt.figure(figsize=figsize)
+                fig = plt.figure(figsize=(figsize[0]*1.5, figsize[1]))
                 fig.suptitle("RR RR HRRN Queues for "+str(core)+" cores - "+d)
 
                 ax1 = fig.add_subplot(2,2,1)
@@ -475,9 +571,10 @@ if __name__ == "__main__":
                 combPlot(x="Queues", y="Throughput", data=oneCore)
                 ax4.set_title("Throughput")
 
-                plt.subplots_adjust(wspace=0.3, hspace=0.4)
+                plt.subplots_adjust(wspace=0.15, hspace=0.4)
                 plt.savefig(os.path.join(outdir, outdir_queues,
                     "RR RR HRRN Queues for "+str(core)+" cores.png"))
+                plt.close(fig)
 
             fig = plt.figure(figsize=figsize)
             fig.suptitle("RR RR HRRN Queues - "+d)
@@ -500,6 +597,7 @@ if __name__ == "__main__":
 
             plt.subplots_adjust(wspace=0.3, hspace=0.4)
             plt.savefig(os.path.join(outdir, outdir_cores, "RR RR HRRN Queues.png"))
+            plt.close(fig)
 
         if len(rrrrspnfcfs.index):
             #
@@ -507,9 +605,10 @@ if __name__ == "__main__":
             #
             #for core in rrrrspnfcfs['Cores'].unique():
             for core in [3]:
-                oneCore = rrrrspnfcfs.loc[lambda df: df.Cores == core]
+                comparison = pd.concat([fcfs, hrrn, spn, rrrrspnfcfs])
+                oneCore = comparison.loc[lambda df: df.Cores == core]
 
-                fig = plt.figure(figsize=figsize)
+                fig = plt.figure(figsize=(figsize[0]*1.5, figsize[1]))
                 fig.suptitle("RR RR SPN FCFS Queues for "+str(core)+" cores - "+d)
 
                 ax1 = fig.add_subplot(2,2,1)
@@ -528,9 +627,10 @@ if __name__ == "__main__":
                 combPlot(x="Queues", y="Throughput", data=oneCore)
                 ax4.set_title("Throughput")
 
-                plt.subplots_adjust(wspace=0.3, hspace=0.4)
+                plt.subplots_adjust(wspace=0.15, hspace=0.4)
                 plt.savefig(os.path.join(outdir, outdir_queues,
                     "RR RR SPN FCFS Queues for "+str(core)+" cores.png"))
+                plt.close(fig)
 
             fig = plt.figure(figsize=figsize)
             fig.suptitle("RR RR SPN FCFS Queues - "+d)
@@ -553,6 +653,7 @@ if __name__ == "__main__":
 
             plt.subplots_adjust(wspace=0.3, hspace=0.4)
             plt.savefig(os.path.join(outdir, outdir_cores, "RR RR SPN FCFS Queues.png"))
+            plt.close(fig)
 
         if len(rrrrhrrnfcfs.index):
             #
@@ -560,9 +661,10 @@ if __name__ == "__main__":
             #
             #for core in rrrrhrrnfcfs['Cores'].unique():
             for core in [3]:
-                oneCore = rrrrhrrnfcfs.loc[lambda df: df.Cores == core]
+                comparison = pd.concat([fcfs, hrrn, spn, rrrrhrrnfcfs])
+                oneCore = comparison.loc[lambda df: df.Cores == core]
 
-                fig = plt.figure(figsize=figsize)
+                fig = plt.figure(figsize=(figsize[0]*1.5, figsize[1]))
                 fig.suptitle("RR RR HRRN FCFS Queues for "+str(core)+" cores - "+d)
 
                 ax1 = fig.add_subplot(2,2,1)
@@ -581,9 +683,10 @@ if __name__ == "__main__":
                 combPlot(x="Queues", y="Throughput", data=oneCore)
                 ax4.set_title("Throughput")
 
-                plt.subplots_adjust(wspace=0.3, hspace=0.4)
+                plt.subplots_adjust(wspace=0.15, hspace=0.4)
                 plt.savefig(os.path.join(outdir, outdir_queues,
                     "RR RR HRRN FCFS Queues for "+str(core)+" cores.png"))
+                plt.close(fig)
 
             fig = plt.figure(figsize=figsize)
             fig.suptitle("RR RR HRRN FCFS Queues - "+d)
@@ -606,6 +709,7 @@ if __name__ == "__main__":
 
             plt.subplots_adjust(wspace=0.3, hspace=0.4)
             plt.savefig(os.path.join(outdir, outdir_cores, "RR RR HRRN FCFS Queues.png"))
+            plt.close(fig)
 
     # Show all plots at the end
     #plt.show()
